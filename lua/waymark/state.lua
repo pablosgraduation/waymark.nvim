@@ -50,6 +50,30 @@ local M = {}
 -- ---------------------------------------------------------------------------
 
 -- ---------------------------------------------------------------------------
+-- Mark type definitions
+-- ---------------------------------------------------------------------------
+
+---@class WaymarkAutomark
+---@field id integer              Unique mark ID from mark_id_counter
+---@field fname string            Absolute file path (normalized)
+---@field row integer             1-indexed line number
+---@field col integer             0-indexed column number
+---@field timestamp number        Monotonic milliseconds (uv.now()) — session-only
+---@field window_id integer?      Window where the mark was created
+---@field tab_id integer?         Tab page where the mark was created
+---@field extmark_id integer?     Neovim extmark ID (nil if not placed)
+---@field bufnr integer?          Buffer number (nil if buffer not loaded)
+
+---@class WaymarkBookmark
+---@field id integer              Unique mark ID from mark_id_counter
+---@field fname string            Absolute file path (normalized)
+---@field row integer             1-indexed line number
+---@field col integer             0-indexed column number
+---@field timestamp number        Epoch seconds (os.time()-based) — persists across sessions
+---@field extmark_id integer?     Neovim extmark ID (nil if not placed)
+---@field bufnr integer?          Buffer number (nil if buffer not loaded)
+
+-- ---------------------------------------------------------------------------
 -- Extmark namespaces
 -- ---------------------------------------------------------------------------
 M.ns_automark = vim.api.nvim_create_namespace("waymark_auto")
@@ -90,8 +114,10 @@ _G._waymark_state.onkey_ns = M.ns_onkey
 -- ---------------------------------------------------------------------------
 -- automarks: ordered oldest-first (index 1 = oldest).
 -- bookmarks: ordered newest-first (index 1 = newest).
+---@type WaymarkAutomark[]
 M.automarks = {}
 M.automarks_idx = -1 -- -1 = staging (not currently navigating)
+---@type WaymarkBookmark[]
 M.bookmarks = {}
 M.bookmarks_idx = -1 -- -1 = staging
 

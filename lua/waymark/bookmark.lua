@@ -170,7 +170,14 @@ function M.load()
     end
 
     local ok, data = pcall(json_decode, table.concat(content, "\n"))
-    if not ok or not data or not data.bookmarks then
+    if not ok then
+        vim.notify(
+            "waymark: bookmarks file is corrupted, starting fresh. File: " .. state.bookmarks_file,
+            vim.log.levels.WARN
+        )
+        return
+    end
+    if not data or not data.bookmarks then
         return
     end
 
@@ -182,6 +189,7 @@ function M.load()
     for _, b in ipairs(raw) do
         local mark
         if b.fname then
+            ---@type WaymarkBookmark
             mark = {
                 id = b.id or state.next_mark_id(),
                 fname = util.normalize_path(b.fname),
@@ -192,6 +200,7 @@ function M.load()
                 bufnr = nil,
             }
         elseif b[1] then
+            ---@type WaymarkBookmark
             mark = {
                 id = state.next_mark_id(),
                 fname = util.normalize_path(b[1]),
@@ -259,6 +268,7 @@ function M.add()
         end
     end
 
+    ---@type WaymarkBookmark
     local mark = {
         id = state.next_mark_id(),
         fname = pos_data.fname,
@@ -517,7 +527,7 @@ function M.clear()
 end
 
 --- Return a deep copy of the bookmarks list.
----@return table[]
+---@return WaymarkBookmark[]
 function M.get()
     return vim.deepcopy(state.bookmarks)
 end

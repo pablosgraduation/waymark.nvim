@@ -10,6 +10,16 @@ local extmarks = require("waymark.extmarks")
 
 local M = {}
 
+---@class WaymarkMergedMark
+---@field id integer
+---@field fname string
+---@field row integer
+---@field col integer
+---@field sort_time number           Epoch seconds (unified timeline axis)
+---@field kind "automark"|"bookmark"
+---@field window_id integer?         Only present for automarks
+---@field tab_id integer?            Only present for automarks
+
 --- Convert a monotonic timestamp to epoch seconds for merged sorting.
 --- Automarks live in monotonic-ms space (session-local), but the merged
 --- timeline needs a single comparable axis. This converts automark timestamps
@@ -31,7 +41,7 @@ end
 --- Bookmarks are processed first so their positions can be recorded; automarks
 --- at the same file:line as a bookmark are then suppressed to avoid showing
 --- duplicate entries in the timeline (the bookmark "wins" since it's persistent).
----@return table[]
+---@return WaymarkMergedMark[]
 local function build_merged_timeline()
     local merged = {}
 

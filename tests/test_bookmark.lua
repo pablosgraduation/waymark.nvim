@@ -447,4 +447,65 @@ describe("waymark.bookmark", function()
             assert.is_not.equals(state.bookmarks, copy)
         end)
     end)
+
+    describe("async save generation counting", function()
+        it("abandons superseded async writes", function()
+            helpers.set_cursor(3, 0)
+            bookmark.add()
+
+            -- Trigger async save (non-sync)
+            bookmark.save(false)
+            local gen_after_first = state.bookmarks_save_generation
+
+            -- Immediately trigger another async save before the first completes
+            helpers.set_cursor(7, 0)
+            bookmark.add()
+            bookmark.save(false)
+
+            -- The generation should have advanced
+            assert.is_true(state.bookmarks_save_generation >= gen_after_first)
+
+            -- Now do a sync save to flush everything
+            bookmark.save(true)
+
+            -- Reload and verify the final state is correct (both bookmarks present)
+            state.clear_list(state.bookmarks)
+            bookmark.load()
+            assert.equals(2, #state.bookmarks)
+        end)
+
+        it("sync save increments generation to invalidate pending async writes", function()
+            helpers.set_cursor(3, 0)
+            bookmark.add()
+
+            local gen_before = state.bookmarks_save_generation
+
+            -- Trigger async save
+            bookmark.save(false)
+
+            -- Then immediately do a sync save (simulates VimLeavePre)
+            bookmark.save(true)
+
+            -- Generation should have advanced past the async save's captured generation
+            assert.is_true(state.bookmarks_save_generation > gen_before)
+        end)
+
+        it("debounce timer resets on rapid saves", function()
+            helpers.set_cursor(3, 0)
+            bookmark.add()
+
+            -- Trigger multiple rapid async saves
+            for _ = 1, 5 do
+                bookmark.save(false)
+            end
+
+            -- Flush with sync save
+            bookmark.save(true)
+
+            state.clear_list(state.bookmarks)
+            bookmark.load()
+            assert.equals(1, #state.bookmarks)
+            assert.equals(3, state.bookmarks[1].row)
+        end)
+    end)
 end)

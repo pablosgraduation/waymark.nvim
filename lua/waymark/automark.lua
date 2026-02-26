@@ -151,6 +151,7 @@ function M.add(r, c_col, fname, force)
     end
 
     -- Create new automark
+    ---@type WaymarkAutomark
     local mark = {
         id = state.next_mark_id(),
         fname = fname,
@@ -374,7 +375,7 @@ function M.clear()
 end
 
 --- Return a deep copy of the automarks list.
----@return table[]
+---@return WaymarkAutomark[]
 function M.get()
     return vim.deepcopy(state.automarks)
 end

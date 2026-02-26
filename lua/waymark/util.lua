@@ -247,7 +247,9 @@ function M.jump_to_position(fname, row, col, tab_id, window_id)
                 return false
             end
         else
-            local ok, err = pcall(vim.cmd, "silent edit " .. vim.fn.fnameescape(norm_fname))
+            local ok, err = pcall(function()
+                vim.cmd.edit({ args = { norm_fname }, mods = { silent = true } })
+            end)
             if not ok then
                 vim.notify("Could not open file: " .. tostring(err), vim.log.levels.WARN)
                 return false

@@ -13,7 +13,7 @@ local M = {}
 -- ---------------------------------------------------------------------------
 
 --- Place a sign extmark for a mark in its buffer.
----@param mark table     Mark struct with .fname, .row, .col fields
+---@param mark WaymarkAutomark|WaymarkBookmark  Mark struct with .fname, .row, .col fields
 ---@param ns integer     Extmark namespace
 ---@param sign_text string  Character to display in the sign column
 ---@param text_hl string    Highlight group for the sign
@@ -50,7 +50,7 @@ function M.place(mark, ns, sign_text, text_hl, num_hl)
 end
 
 --- Remove a mark's extmark from its buffer and clear the reference.
----@param mark table     Mark struct
+---@param mark WaymarkAutomark|WaymarkBookmark  Mark struct
 ---@param ns integer     Extmark namespace
 function M.remove(mark, ns)
     if mark.extmark_id and mark.bufnr then
@@ -63,7 +63,7 @@ function M.remove(mark, ns)
 end
 
 --- Read the current position of a mark's extmark and update mark.row.
----@param mark table     Mark struct
+---@param mark WaymarkAutomark|WaymarkBookmark  Mark struct
 ---@param ns integer     Extmark namespace
 function M.sync_from_extmark(mark, ns)
     if mark.extmark_id and mark.bufnr and vim.api.nvim_buf_is_valid(mark.bufnr) then

@@ -4,6 +4,52 @@
 
 local M = {}
 
+---@class WaymarkMappings
+---@field add_bookmark string|false
+---@field delete_bookmark string|false
+---@field show_bookmarks string|false
+---@field prev_bookmark string|false
+---@field next_bookmark string|false
+---@field toggle_bookmark string|false
+---@field goto_bookmark_1 string|false
+---@field goto_bookmark_2 string|false
+---@field goto_bookmark_3 string|false
+---@field goto_bookmark_4 string|false
+---@field goto_bookmark_5 string|false
+---@field goto_bookmark_6 string|false
+---@field goto_bookmark_7 string|false
+---@field goto_bookmark_8 string|false
+---@field goto_bookmark_9 string|false
+---@field show_automarks string|false
+---@field purge_automarks string|false
+---@field prev_allmark string|false
+---@field next_allmark string|false
+---@field prev_automark string|false
+---@field next_automark string|false
+
+---@class WaymarkConfig
+---@field automark_limit integer
+---@field automark_idle_ms number
+---@field automark_min_lines integer
+---@field automark_min_interval_ms number
+---@field automark_cleanup_lines integer
+---@field automark_recent_ms number
+---@field jump_flash_ms number
+---@field jump_flash_color string
+---@field automark_sign string
+---@field bookmark_sign string
+---@field automark_sign_color string
+---@field bookmark_sign_color string
+---@field popup_check_color string
+---@field popup_uncheck_color string
+---@field popup_preview_color string
+---@field popup_help_color string
+---@field ignored_filetypes string[]
+---@field ignored_patterns string[]
+---@field mappings WaymarkMappings|false
+---@field _ignored_ft_set table<string, boolean>  Internal: built by setup()
+
+---@type WaymarkConfig
 M.defaults = {
     -- Maximum number of automarks kept (oldest evicted when exceeded)
     automark_limit = 15,
@@ -90,6 +136,7 @@ M.defaults = {
 }
 
 --- Active configuration (deep-copied from defaults, merged with user opts in setup()).
+---@type WaymarkConfig
 M.current = vim.deepcopy(M.defaults)
 
 -- Pre-build the filetype lookup set so should_ignore_buffer() works before setup().
@@ -138,7 +185,7 @@ local function check_string(name)
 end
 
 --- Merge user options into defaults and validate all values.
----@param opts table|nil  Partial config overrides
+---@param opts WaymarkConfig|nil  Partial config overrides
 function M.setup(opts)
     M.current = vim.tbl_deep_extend("force", vim.deepcopy(M.defaults), opts or {})
 
