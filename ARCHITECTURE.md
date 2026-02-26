@@ -84,12 +84,15 @@ config:
   flowchart:
     nodeSpacing: 30
     rankSpacing: 40
+    useMaxWidth: false
 ---
 flowchart TD
-    triggers["on_key (idle) · InsertLeave
-    BufLeave · LspRequest (jump methods)"]
+    A["on_key (idle)"]
+    B[InsertLeave]
+    C[BufLeave]
+    D["LspRequest (jump methods)"]
 
-    triggers --> E[util.get_cursor_position]
+    A & B & C & D --> E[util.get_cursor_position]
     E -->|ignored buffer| F(Skip)
     E -->|valid position| G
 
@@ -99,15 +102,15 @@ flowchart TD
     G -->|no| T(Touch timestamp)
     G -->|yes| BK{Bookmark on same line?}
 
-    BK -->|yes| BKU(Update bookmark timestamp)
+    BK -->|yes| BKU("&nbsp;&nbsp;Update bookmark timestamp&nbsp;&nbsp;")
     BK -->|no| CL
 
-    CL["Cleanup pass
+    CL["&nbsp;&nbsp;&nbsp;Cleanup pass
     ① ≤2 lines → remove
     ② ≤cleanup_lines, same window/tab,
-       older than recent_ms → remove"]
+    older than recent_ms → remove&nbsp;&nbsp;&nbsp;"]
 
-    CL --> CR[Create automark + place extmark]
+    CL --> CR["&nbsp;&nbsp;Create automark + place extmark&nbsp;&nbsp;"]
     CR --> EV{Over automark_limit?}
     EV -->|yes| RM[Evict oldest]
     EV -->|no| DN(Done)
