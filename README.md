@@ -12,8 +12,6 @@
   </a>
 </p>
 
-<p align="center">· · · · · · · · · · · · · · · · · · · · · · ·</p>
-
 Position-tracking & navigation plugin for Neovim.
 
 Waymark provides three complementary navigation subsystems that work alongside
