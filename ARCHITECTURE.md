@@ -85,6 +85,7 @@ config:
     nodeSpacing: 30
     rankSpacing: 40
     useMaxWidth: false
+    wrappingWidth: 300
 ---
 flowchart TD
     A["on_key (idle)"]
@@ -102,15 +103,15 @@ flowchart TD
     G -->|no| T(Touch timestamp)
     G -->|yes| BK{Bookmark on same line?}
 
-    BK -->|yes| BKU("&nbsp;&nbsp;Update bookmark timestamp&nbsp;&nbsp;")
+    BK -->|yes| BKU(Update bookmark timestamp)
     BK -->|no| CL
 
-    CL["&nbsp;&nbsp;&nbsp;Cleanup pass
+    CL["Cleanup pass
     ① ≤2 lines → remove
     ② ≤cleanup_lines, same window/tab,
-    older than recent_ms → remove&nbsp;&nbsp;&nbsp;"]
+    older than recent_ms → remove"]
 
-    CL --> CR["&nbsp;&nbsp;Create automark + place extmark&nbsp;&nbsp;"]
+    CL --> CR[Create automark + place extmark]
     CR --> EV{Over automark_limit?}
     EV -->|yes| RM[Evict oldest]
     EV -->|no| DN(Done)
