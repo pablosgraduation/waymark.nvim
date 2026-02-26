@@ -8,6 +8,12 @@
 
 <p align="center">· · · · · · · · · · · · · · · · · · · · · · ·</p>
 
+<p align="center">
+  <a href="https://github.com/pablosgraduation/waymark.nvim/actions/workflows/ci.yml">
+    <img src="https://github.com/pablosgraduation/waymark.nvim/actions/workflows/ci.yml/badge.svg" alt="CI" />
+  </a>
+</p>
+
 Position-tracking & navigation plugin for Neovim.
 
 Waymark provides three complementary navigation subsystems that work alongside
@@ -21,7 +27,7 @@ Waymark provides three complementary navigation subsystems that work alongside
 
 ## Why waymark?
 
-Automarks create a breadcrumb trail as you work — no manual `:mark` placement
+Automarks create a breadcrumb trail as you work, so no manual `:mark` placement
 needed. Context cleanup prunes nearby duplicates while protecting recent marks,
 keeping the list focused on meaningful positions. Bookmarks persist across
 sessions using atomic writes (temp → fsync → rename), so your marks survive
@@ -161,7 +167,7 @@ See `:help waymark-config-options` for descriptions of each option.
 | `<C-b>` | Previous allmark (merged timeline) |
 | `<leader>bal` | Show automarks |
 | `<leader>bac` | Purge automarks (deleted files) |
-| _(unbound)_ | Next allmark — set `next_allmark` in `mappings` to enable |
+| _(unbound)_ | Next allmark. Set `next_allmark` in `mappings` to enable |
 
 Set `mappings = false` in setup to disable all keymaps.
 
@@ -189,8 +195,10 @@ than requiring each other, which prevents circular dependencies. Automarks use
 monotonic timestamps (`vim.uv.now()`), bookmarks use epoch seconds (`os.time()`),
 and the allmark timeline bridges the two clock domains via session anchors that
 convert automark times into epoch space for unified sorting. `extmarks.lua` is
-the single authority for all Neovim extmark operations — place, remove, sync,
-and restore — so sign management is never scattered across modules.
+the authority for mark sign extmark operations (place, remove, sync,
+and restore), so sign management is never scattered across modules. The only
+exception is `util.flash_line()`, which manages its own short-lived line
+highlight in a separate namespace.
 
 See [ARCHITECTURE.md](ARCHITECTURE.md) for visual diagrams of the module
 dependency graph, save pipeline, clock domain bridge, and navigation state
