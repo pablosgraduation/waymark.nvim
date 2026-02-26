@@ -1,0 +1,553 @@
+*waymark.txt*    Position-tracking & navigation plugin for Neovim
+
+Author:   waymark contributors
+License:  MIT
+Homepage: https://github.com/pablosgraduation/waymark.nvim
+
+==============================================================================
+CONTENTS                                                    *waymark-contents*
+
+    Introduction .............. |waymark-introduction|
+    Setup ..................... |waymark-setup|
+    Configuration ............. |waymark-config|
+    Config Options ............ |waymark-config-options|
+    Subsystems ................ |waymark-subsystems|
+    Persistence ............... |waymark-persistence|
+    Commands .................. |waymark-commands|
+    Mappings .................. |waymark-mappings|
+    API ....................... |waymark-api|
+    Highlights ................ |waymark-highlights|
+    Health .................... |waymark-health|
+    Troubleshooting ........... |waymark-troubleshooting|
+
+==============================================================================
+INTRODUCTION                                            *waymark-introduction*
+
+Waymark provides three complementary navigation subsystems that work
+alongside (not replacing) Neovim's built-in jumplist and named marks:
+
+  Automark    Automatic breadcrumbs. Waymark silently records cursor
+              positions when you pause (idle timeout), leave insert mode,
+              switch buffers, or perform LSP jumps. Nearby duplicates are
+              cleaned up so the list stays useful. Automarks are
+              session-only and never persisted to disk.
+
+  Bookmark    User-placed persistent marks. Add them explicitly at lines
+              you want to return to. Bookmarks survive across sessions
+              (saved to disk as JSON) and are shown in an interactive
+              popup for quick selection, reordering, and multi-open in
+              vertical splits.
+
+  Allmark     A merged chronological timeline of both automarks and
+              bookmarks. Navigate your full editing history regardless
+              of how each mark was created.
+
+==============================================================================
+SETUP                                                          *waymark-setup*
+
+                                                            *waymark.setup()*
+>lua
+    require("waymark").setup()                -- use all defaults
+    require("waymark").setup({ ... })         -- override specific options
+    require("waymark").setup({ mappings = false })  -- disable all keymaps
+<
+
+With vim.pack (Neovim >= 0.12): >lua
+
+    vim.pack.add({
+        "https://github.com/pablosgraduation/waymark.nvim",
+    })
+    require("waymark").setup()
+<
+
+With lazy.nvim: >lua
+
+    {
+        "pablosgraduation/waymark.nvim",
+        event = "VeryLazy",
+        opts = {},
+    }
+<
+
+`setup()` can safely be called multiple times at runtime — for example,
+to change configuration mid-session or from an ftplugin file. Previous
+keymaps are cleaned up, caches are flushed, and all autocmd groups use
+`clear = true` to prevent duplicate registrations.
+
+If `setup()` has not been called, waymark operates in a degraded mode:
+highlight groups are applied (so signs render if placed), but keymaps
+and user commands are not registered, bookmarks are not loaded from
+disk, and tracking autocmds are inactive. Calling API functions
+directly (e.g. `require("waymark").add_bookmark()`) will trigger a
+one-time warning prompting you to call `setup()`.
+
+==============================================================================
+CONFIGURATION                                                *waymark-config*
+
+All options with their defaults:
+
+>lua
+    require("waymark").setup({
+        automark_limit           = 15,
+        automark_idle_ms         = 3000,
+        automark_min_lines       = 5,
+        automark_min_interval_ms = 2000,
+        automark_cleanup_lines   = 10,
+        automark_recent_ms       = 30000,
+        jump_flash_ms            = 200,
+        jump_flash_color         = "#4a4a4a",
+        automark_sign            = "¤",
+        bookmark_sign            = "※",
+        automark_sign_color      = "#757575",
+        bookmark_sign_color      = "#FFD700",
+        popup_check_color        = "#E08070",
+        popup_uncheck_color      = "#555555",
+        popup_preview_color      = "#666666",
+        popup_help_color         = "#555555",
+        ignored_filetypes = {
+            "neo-tree", "diffview", "spectre", "telescope",
+            "help", "qf", "fugitive", "git", "toggleterm", "", "netrw",
+        },
+        ignored_patterns = {
+            "neo%-tree", "diffview://", "spectre_panel", "Telescope",
+            "^term://", "^fugitive://", "COMMIT_EDITMSG", "^oil://",
+            "%.local/share/nvim/scratch/.*Scratch",
+        },
+        mappings = {
+            add_bookmark       = "<leader>bb",
+            delete_bookmark    = "<leader>bd",
+            show_bookmarks     = "<leader>bl",
+            prev_bookmark      = "<leader>bp",
+            next_bookmark      = "<leader>bn",
+            toggle_bookmark    = "<S-N>",
+            goto_bookmark_1    = "<leader>b1",
+            goto_bookmark_2    = "<leader>b2",
+            goto_bookmark_3    = "<leader>b3",
+            goto_bookmark_4    = "<leader>b4",
+            goto_bookmark_5    = "<leader>b5",
+            goto_bookmark_6    = "<leader>b6",
+            goto_bookmark_7    = "<leader>b7",
+            goto_bookmark_8    = "<leader>b8",
+            goto_bookmark_9    = "<leader>b9",
+            show_automarks     = "<leader>bal",
+            purge_automarks    = "<leader>bac",
+            prev_allmark       = "<C-b>",
+            next_allmark       = false,
+            prev_automark      = "[a",
+            next_automark      = "]a",
+        },
+    })
+<
+
+See |waymark-config-options| for detailed descriptions of each option.
+
+==============================================================================
+CONFIG OPTIONS                                        *waymark-config-options*
+
+automark_limit                                          (number, default: 15)
+    Maximum number of automarks retained. When the limit is exceeded, the
+    oldest automark is evicted. Uses O(n) array shift internally, which is
+    negligible at the default limit of 15.
+
+automark_idle_ms                                      (number, default: 3000)
+    Milliseconds of idle time in normal mode before an automark is placed
+    at the cursor. The idle timer restarts on every keypress. Minimum
+    enforced: 100.
+
+automark_min_lines                                       (number, default: 5)
+    Minimum line distance from the previous automark to create a new one.
+    Cursor movements smaller than this are ignored unless enough time has
+    passed (see `automark_min_interval_ms`).
+
+automark_min_interval_ms                              (number, default: 2000)
+    Time gate for small movements below `automark_min_lines`. If the
+    cursor moved fewer than `automark_min_lines` lines but this many
+    milliseconds have elapsed since the last automark, a new one is
+    created anyway (provided the cursor actually moved). Set to 0 to
+    disable the time gate entirely — the distance threshold
+    (`automark_min_lines`) will then be the sole heuristic for
+    non-forced automarks. Note that automarks are only placed when a
+    trigger fires (idle timeout, InsertLeave, BufLeave, or LSP jump),
+    not on every cursor movement.
+
+automark_cleanup_lines                                  (number, default: 10)
+    Context cleanup radius. Existing automarks within this many lines of
+    a new automark are candidates for removal, but only if they are in
+    the same window and tab and are older than `automark_recent_ms`.
+    Marks within 2 lines are always removed regardless (micro-movement
+    deduplication).
+
+automark_recent_ms                                   (number, default: 30000)
+    Age threshold protecting recent marks from context cleanup. Marks
+    younger than this value (in milliseconds) are preserved even if they
+    fall within `automark_cleanup_lines`. Set to 0 to disable age
+    protection (all nearby marks in the same window/tab are cleaned up).
+
+jump_flash_ms                                          (number, default: 200)
+    Duration in milliseconds of the landing line highlight after a
+    navigation jump. Set to 0 to disable the flash entirely.
+
+jump_flash_color                                 (string, default: "#4a4a4a")
+    Background color (hex string) for the jump flash highlight.
+
+automark_sign                                          (string, default: "¤")
+    Single character shown in the sign column for automarks.
+
+bookmark_sign                                          (string, default: "※")
+    Single character shown in the sign column for bookmarks.
+
+automark_sign_color                              (string, default: "#757575")
+    Hex color string for the automark gutter sign and line number.
+
+bookmark_sign_color                              (string, default: "#FFD700")
+    Hex color string for the bookmark gutter sign, line number, and
+    popup sign character.
+
+popup_check_color                                (string, default: "#E08070")
+    Hex color string for checked (selected) items in the bookmarks popup.
+
+popup_uncheck_color                              (string, default: "#555555")
+    Hex color string for unchecked items in the bookmarks popup.
+
+popup_preview_color                              (string, default: "#666666")
+    Hex color string for line preview text in the bookmarks popup.
+
+popup_help_color                                 (string, default: "#555555")
+    Hex color string for the help text at the bottom of the bookmarks
+    popup.
+
+ignored_filetypes                                              (table, list)
+    List of filetype strings. Buffers with a matching filetype are
+    excluded from automark tracking and bookmark placement. Uses an
+    O(1) set lookup internally for fast checks.
+
+ignored_patterns                                               (table, list)
+    List of Lua patterns matched against the buffer's absolute filename.
+    Buffers whose filename matches any pattern are excluded from
+    tracking. Patterns use standard Lua `string.match()` syntax
+    (e.g. `"^term://"`, `"%.local/share/nvim/scratch/.*Scratch"`).
+
+mappings                                              (table or false)
+    Table of key-to-action mappings. Set individual keys to `false` to
+    disable them, or set `mappings = false` to disable all keymaps.
+    Keys are applied as normal-mode global mappings. See
+    |waymark-mappings| for the full list of action names.
+
+==============================================================================
+SUBSYSTEMS                                                *waymark-subsystems*
+
+AUTOMARKS                                            *waymark-automark*
+
+Automarks are created automatically when:
+- The cursor is idle for `automark_idle_ms` milliseconds in normal mode
+- You leave insert mode (InsertLeave)
+- You switch buffers (BufLeave)
+- An LSP jump (go-to-definition, etc.) is initiated
+
+Cleanup uses a two-tier strategy. Marks within 2 lines of a new automark
+are always removed as micro-movement duplicates. Marks within
+`automark_cleanup_lines` (default 10) are removed only if they are in the
+same window and tab and are older than `automark_recent_ms` — this prevents
+cross-split cleanup from removing marks the user placed intentionally in a
+different context. When a bookmark exists on the same line, no automark is
+placed there; the bookmark takes priority.
+
+BOOKMARKS                                            *waymark-bookmark*
+
+Bookmarks are user-placed persistent marks. They are:
+- Saved to `~/.local/share/nvim/waymark-bookmarks.json`
+- Written atomically (temp + fsync + rename) for crash safety
+- Shown in an interactive popup with checkboxes, reordering, and multi-open
+
+Toggle (bound to `<S-N>` by default) adds a bookmark if no marks exist on
+the line; if any marks exist on the line (automarks or bookmarks), it
+removes all of them. When a bookmark is added via `add_bookmark`, any
+automark on the same line is automatically removed. After format-on-save
+operations, bookmarks are re-synced from extmark positions and
+deduplicated — two bookmarks that land on the same line after formatting
+are merged.
+
+ALLMARKS                                              *waymark-allmark*
+
+The allmark timeline merges automarks and bookmarks into a single
+chronological list, allowing unified Prev/Next navigation.
+
+The timeline bridges two clock domains: automarks use session-local
+monotonic timestamps (via `vim.uv.now()`), while bookmarks use persisted
+epoch timestamps (via `os.time()`). Session anchors recorded at startup
+convert automark times into epoch space for unified sorting. If both an
+automark and a bookmark exist on the same file and line, only the bookmark
+appears in the merged timeline to avoid duplicate entries.
+
+==============================================================================
+PERSISTENCE                                            *waymark-persistence*
+
+Bookmarks are saved to: >
+    vim.fn.stdpath("data") .. "/waymark-bookmarks.json"
+<
+This is typically `~/.local/share/nvim/waymark-bookmarks.json`.
+
+Write strategy: atomic (write to temp file → fsync → rename over target).
+Async writes are debounced at 300ms using a libuv timer; a synchronous
+flush is performed on `VimLeavePre` to ensure nothing is lost on exit.
+
+Crash safety: because writes go through a temp file first, the bookmark
+file is never partially written. If a crash occurs mid-save, orphaned
+temp files are cleaned up on the next load (files older than 10 seconds
+are removed automatically).
+
+Multi-instance limitation: if two Neovim instances modify bookmarks
+concurrently, last-write-wins. No file-level locking is performed. Close
+other instances or use separate bookmark files if this is a concern.
+
+Automarks are never persisted — they exist only in memory for the current
+session.
+
+==============================================================================
+COMMANDS                                                  *waymark-commands*
+
+Commands that accept a count are marked with [count]. Use a count prefix
+to repeat the action, e.g. `:3WaymarkPrevBookmark` jumps back 3
+bookmarks.
+
+:WaymarkAddBookmark           Add bookmark at cursor
+:WaymarkDeleteBookmark        Delete bookmark at cursor
+:WaymarkToggleBookmark        Toggle: remove marks on line or add bookmark
+:WaymarkShowBookmarks         Open interactive bookmarks popup
+:WaymarkPrevBookmark [count]  Previous bookmark (cycles)
+:WaymarkNextBookmark [count]  Next bookmark (cycles)
+:WaymarkJumpBookmark {n}      Jump to bookmark by index
+:WaymarkClearBookmarks        Remove all bookmarks
+
+:WaymarkPrevAutomark [count]  Previous automark (cycles)
+:WaymarkNextAutomark [count]  Next automark (cycles)
+:WaymarkShowAutomarks         Show all automarks
+:WaymarkPurgeAutomarks        Remove automarks for deleted files
+:WaymarkClearAutomarks        Remove all automarks
+
+:WaymarkPrevAllmark  [count]  Previous in merged timeline (cycles)
+:WaymarkNextAllmark  [count]  Next in merged timeline (cycles)
+
+:WaymarkDebug                 Dump internal state for troubleshooting
+
+==============================================================================
+MAPPINGS                                                  *waymark-mappings*
+
+Default mappings (set `mappings = false` to disable all):
+
+    <leader>bb     Add bookmark at cursor
+    <leader>bd     Delete bookmark at cursor
+    <leader>bl     Show bookmarks popup
+    <leader>bp     Previous bookmark
+    <leader>bn     Next bookmark
+    <S-N>          Toggle bookmark
+    <leader>b1-9   Jump to bookmark by index
+    <leader>bal    Show automarks
+    <leader>bac    Purge automarks
+    <C-b>          Previous allmark
+    [a             Previous automark
+    ]a             Next automark
+
+`next_allmark` is unbound by default. Set it in `mappings` to enable.
+
+Popup keybindings:
+
+    Space / v      Toggle selection
+    Enter          Jump (single) or open in splits (multiple)
+    d              Delete selected (or cursor line)
+    K / J          Reorder bookmark up / down
+    q / Esc        Close popup
+
+The popup opens in a modal floating window with one bookmark per line.
+Navigate with j/k to move the cursor between entries. Press Space to
+toggle checkboxes on one or more bookmarks, then press Enter to jump:
+with no selection, Enter jumps to the bookmark under the cursor; with
+one selection, it jumps to that bookmark; with multiple selections
+(up to 5), it opens each in a vertical split. K/J reorder the
+bookmark under the cursor and the new order is persisted to disk.
+Line previews show the first ~40 characters of each bookmarked line.
+
+==============================================================================
+API                                                            *waymark-api*
+
+>lua
+    local waymark = require("waymark")
+
+    -- Bookmarks
+    waymark.add_bookmark()
+    waymark.delete_bookmark()
+    waymark.toggle_bookmark()
+    waymark.goto_bookmark(index)
+    waymark.prev_bookmark(count)
+    waymark.next_bookmark(count)
+    waymark.show_bookmarks()
+    waymark.clear_bookmarks()
+    waymark.get_bookmarks()    -- returns deep copy
+
+    -- Automarks
+    waymark.prev_automark(count)
+    waymark.next_automark(count)
+    waymark.show_automarks()
+    waymark.purge_automarks()
+    waymark.clear_automarks()
+    waymark.get_automarks()    -- returns deep copy
+
+    -- Allmarks (merged timeline)
+    waymark.prev_allmark(count)
+    waymark.next_allmark(count)
+<
+
+All bookmark and automark indices are 1-based. The `count` parameter
+defaults to 1 if omitted or nil. `prev_bookmark` and `next_bookmark`
+navigate cyclically — going past either end wraps to the opposite end.
+`prev_bookmark` walks toward older bookmarks (higher indices in the
+newest-first list); `next_bookmark` walks toward newer. The same
+wrapping applies to automark and allmark navigation. `goto_bookmark(n)`
+is a direct jump with no cycling; it returns a warning if the index is
+out of range.
+
+For custom bookmark index keymaps beyond slots 1-9: >lua
+
+    vim.keymap.set("n", "<leader>ba", function()
+        require("waymark").goto_bookmark(1)
+    end)
+<
+
+`get_bookmarks()` returns a list of: >lua
+    {
+        id        = 42,           -- unique mark ID (integer)
+        fname     = "/abs/path",  -- absolute file path
+        row       = 15,           -- 1-indexed line number
+        col       = 8,            -- 1-indexed column number
+        timestamp = 1719500000,   -- epoch seconds (persisted)
+    }
+<
+
+`get_automarks()` returns a list of: >lua
+    {
+        id        = 7,            -- unique mark ID (integer)
+        fname     = "/abs/path",  -- absolute file path
+        row       = 42,           -- 1-indexed line number
+        col       = 1,            -- 1-indexed column number
+        timestamp = 58320,        -- monotonic ms (session-local)
+        window_id = 1001,         -- window handle where created
+        tab_id    = 1,            -- tabpage handle where created
+    }
+<
+
+Example: telescope picker for bookmarks: >lua
+
+    vim.keymap.set("n", "<leader>fb", function()
+        local pickers = require("telescope.pickers")
+        local finders = require("telescope.finders")
+        local conf = require("telescope.config").values
+        local bookmarks = require("waymark").get_bookmarks()
+
+        pickers.new({}, {
+            prompt_title = "Waymark Bookmarks",
+            finder = finders.new_table({
+                results = bookmarks,
+                entry_maker = function(b)
+                    return {
+                        value = b,
+                        display = string.format(
+                            "%s:%d",
+                            vim.fn.fnamemodify(b.fname, ":~:."),
+                            b.row
+                        ),
+                        ordinal = b.fname .. ":" .. b.row,
+                        filename = b.fname,
+                        lnum = b.row,
+                        col = b.col,
+                    }
+                end,
+            }),
+            sorter = conf.generic_sorter({}),
+            previewer = conf.grep_previewer({}),
+        }):find()
+    end)
+<
+
+==============================================================================
+HIGHLIGHTS                                              *waymark-highlights*
+
+Waymark defines the following highlight groups. Override them in your
+colorscheme or after `setup()` to customize appearance. Groups are
+automatically reapplied on |ColorScheme| events.
+
+    WaymarkAutomarkSign     Automark gutter sign character.
+                            Default: fg from `automark_sign_color`
+
+    WaymarkAutomarkNum      Line number for automark lines.
+                            Default: fg from `automark_sign_color`
+
+    WaymarkBookmarkSign     Bookmark gutter sign character.
+                            Default: fg from `bookmark_sign_color`
+
+    WaymarkBookmarkNum      Line number for bookmark lines.
+                            Default: fg from `bookmark_sign_color`
+
+    WaymarkFlash            Jump landing flash (full-line background).
+                            Default: bg from `jump_flash_color`
+
+    WaymarkPopupCheck       Checked (selected) item in the popup.
+                            Default: fg from `popup_check_color`
+
+    WaymarkPopupUncheck     Unchecked item in the popup.
+                            Default: fg from `popup_uncheck_color`
+
+    WaymarkPopupSign        Bookmark sign character in the popup.
+                            Default: fg from `bookmark_sign_color`
+
+    WaymarkPopupPreview     Line preview text in the popup (italic).
+                            Default: fg from `popup_preview_color`
+
+    WaymarkPopupHelp        Help text at the bottom of the popup.
+                            Default: fg from `popup_help_color`
+
+==============================================================================
+HEALTH                                                      *waymark-health*
+
+Run `:checkhealth waymark` to verify the plugin is configured correctly.
+The health check verifies:
+- Neovim version (>= 0.10 recommended, 0.9 supported with warnings)
+- Whether `setup()` has been called
+- Whether the bookmark data directory exists
+- Whether the bookmark file is accessible (with current bookmark count)
+- JSON encode/decode capability (required for bookmark persistence)
+- Current automark count and configured limit
+
+==============================================================================
+TROUBLESHOOTING                                    *waymark-troubleshooting*
+
+Q: Signs aren't showing in my buffer.
+A: Check that `signcolumn` is not set to `"no"`. Ensure the buffer's
+   filetype isn't in `ignored_filetypes` and its name doesn't match
+   `ignored_patterns`. Run `:WaymarkDebug` to verify marks exist for the
+   buffer. Run `:checkhealth waymark` for general diagnostics.
+
+Q: My bookmarks moved after I saved the file.
+A: This is expected when format-on-save is active. Waymark re-syncs
+   extmark positions after every `BufWritePost` and deduplicates bookmarks
+   that land on the same line. The bookmarks track line movement correctly
+   via Neovim extmarks.
+
+Q: Can I use waymark with telescope or fzf-lua?
+A: Yes. Use `require("waymark").get_bookmarks()` and
+   `require("waymark").get_automarks()` — they return deep copies of the
+   mark lists. See |waymark-api| for the return shape and a telescope
+   example.
+
+Q: I lost bookmarks after a crash.
+A: Waymark uses atomic writes (temp file → fsync → rename), so the
+   bookmark file is never partially written. If a crash occurred mid-save,
+   orphaned temp files are cleaned up on next startup. Your bookmarks
+   should be intact from the last successful save.
+
+Q: Bookmarks from another Neovim instance are missing.
+A: Waymark does not perform file-level locking. If two instances modify
+   bookmarks concurrently, the last instance to save wins. Close other
+   instances or use separate bookmark files if this is a concern.
+
+==============================================================================
+vim:tw=78:ts=8:ft=help:norl:
