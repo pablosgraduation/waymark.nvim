@@ -79,39 +79,44 @@ Automarks are created by four event sources. Each feeds into the same `add()`
 pipeline.
 
 ```mermaid
+---
+config:
+  flowchart:
+    nodeSpacing: 30
+    rankSpacing: 40
+---
 flowchart TD
-    A["on_key (debounced by idle_ms)"]
-    B[InsertLeave]
-    C[BufLeave]
-    D["LspRequest (go-to-definition & friends)"]
+    triggers["on_key (idle) · InsertLeave
+    BufLeave · LspRequest (jump methods)"]
 
-    A & B & C & D --> E[util.get_cursor_position]
+    triggers --> E[util.get_cursor_position]
     E -->|ignored buffer| F(Skip)
-    E -->|valid position| G{Passes heuristics?}
+    E -->|valid position| G
 
-    G -->|different file| Y
-    G -->|"≥ min_lines away"| Y
-    G -->|"≥ min_interval_ms + moved"| Y
-    G -->|too close / too soon| T[Touch timestamp only]
-    T --> Z(Done)
+    G{"Passes heuristics?
+    different file / ≥ min_lines /
+    ≥ min_interval_ms + moved"}
+    G -->|no| T(Touch timestamp)
+    G -->|yes| BK{Bookmark on same line?}
 
-    Y --> BK{Bookmark on same line?}
-    BK -->|yes| BKU[Update bookmark timestamp]
-    BKU --> Z
+    BK -->|yes| BKU(Update bookmark timestamp)
     BK -->|no| CL
 
     CL["Cleanup pass
-    ① ≤2 lines → always remove
+    ① ≤2 lines → remove
     ② ≤cleanup_lines, same window/tab,
        older than recent_ms → remove"]
 
     CL --> CR[Create automark + place extmark]
     CR --> EV{Over automark_limit?}
-    EV -->|yes| RM[Evict oldest] --> Z
-    EV -->|no| Z
+    EV -->|yes| RM[Evict oldest]
+    EV -->|no| DN(Done)
+    RM --> DN
 
     style F fill:#888,color:#fff
-    style Z fill:#5a9,color:#fff
+    style T fill:#888,color:#fff
+    style BKU fill:#888,color:#fff
+    style DN fill:#5a9,color:#fff
 ```
 
 ---
