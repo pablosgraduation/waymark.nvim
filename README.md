@@ -192,6 +192,10 @@ convert automark times into epoch space for unified sorting. `extmarks.lua` is
 the single authority for all Neovim extmark operations — place, remove, sync,
 and restore — so sign management is never scattered across modules.
 
+See [ARCHITECTURE.md](ARCHITECTURE.md) for visual diagrams of the module
+dependency graph, save pipeline, clock domain bridge, and navigation state
+machine.
+
 ## Highlight Groups
 
 | Group | Purpose |
