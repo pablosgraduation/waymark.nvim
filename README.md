@@ -6,7 +6,9 @@
   </picture>
 </p>
 
-<p align="left">
+<p align="center">· · · · · · · · · · · · · · · · · · · · · · ·</p>
+
+<p align="center">
   <a href="https://github.com/pablosgraduation/waymark.nvim/actions/workflows/ci.yml">
     <img src="https://github.com/pablosgraduation/waymark.nvim/actions/workflows/ci.yml/badge.svg" alt="CI" />
   </a>
