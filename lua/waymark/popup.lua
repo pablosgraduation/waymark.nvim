@@ -18,6 +18,7 @@ local M = {}
 -- Helpers
 -- ---------------------------------------------------------------------------
 
+---@return integer
 local function count_selected()
     local count = 0
     for _, b in ipairs(state.bookmarks) do
@@ -28,6 +29,7 @@ local function count_selected()
     return count
 end
 
+---@return WaymarkBookmark[]
 local function get_selected()
     local selected = {}
     for _, b in ipairs(state.bookmarks) do
@@ -42,6 +44,7 @@ end
 -- Display
 -- ---------------------------------------------------------------------------
 
+---@return string[]
 local function create_display_lines()
     local c = config.current
     local lines = { "" }

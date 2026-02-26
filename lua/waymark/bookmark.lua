@@ -19,6 +19,7 @@ local M = {}
 -- ============================================================================
 
 --- Build the JSON-serializable representation of bookmarks.
+---@return WaymarkBookmarkFile
 local function serialize_bookmarks()
     local to_save = {}
     for _, b in ipairs(state.bookmarks) do

@@ -73,6 +73,27 @@ local M = {}
 ---@field extmark_id integer?     Neovim extmark ID (nil if not placed)
 ---@field bufnr integer?          Buffer number (nil if buffer not loaded)
 
+---@class WaymarkCursorPosition
+---@field fname string    Absolute file path (normalized)
+---@field row integer     1-indexed line number
+---@field col integer     1-indexed column number
+
+---@class WaymarkLastPosition
+---@field fname string    Last-tracked file path (empty string = no position yet)
+---@field row integer     Last-tracked 1-indexed line number
+---@field time number     Monotonic timestamp in ms (uv.now()) of last track event
+
+---@class WaymarkBookmarkSerialized
+---@field id integer
+---@field fname string
+---@field row integer
+---@field col integer
+---@field timestamp number
+
+---@class WaymarkBookmarkFile
+---@field bookmarks WaymarkBookmarkSerialized[]
+---@field saved_at integer  Epoch seconds when the file was written
+
 -- ---------------------------------------------------------------------------
 -- Extmark namespaces
 -- ---------------------------------------------------------------------------
@@ -148,6 +169,7 @@ end
 -- ---------------------------------------------------------------------------
 -- Tracking state
 -- ---------------------------------------------------------------------------
+---@type WaymarkLastPosition
 M.last_position = { fname = "", row = 0, time = 0 }
 M.last_key_time = 0 -- uv.now() timestamp of the most recent keypress
 M.nav_generation = 0 -- incremented each begin_navigation()
@@ -170,24 +192,34 @@ M.session_start_epoch = os.time()
 -- ---------------------------------------------------------------------------
 -- Merged (allmark) navigation state
 -- ---------------------------------------------------------------------------
-M.merged_last_mark = nil -- mark ID (integer) or nil for staging
+---@type integer|nil  Mark ID of last-visited mark, or nil for staging
+M.merged_last_mark = nil
 
 -- ---------------------------------------------------------------------------
 -- Bookmarks popup state
 -- ---------------------------------------------------------------------------
+---@type integer|nil
 M.popup_buf = nil
+---@type integer|nil
 M.popup_win = nil
+---@type table<integer, boolean>  Mark ID → selected flag
 M.popup_selected = {}
+---@type table<string, string|false>  Cache key → preview line text (false = unavailable)
 M.popup_preview_cache = {}
 
 -- ---------------------------------------------------------------------------
 -- Bookmarks persistence
 -- ---------------------------------------------------------------------------
+---@type string
 M.bookmarks_file = vim.fn.stdpath("data") .. "/waymark-bookmarks.json"
+---@type userdata  libuv timer handle
 M.bookmarks_save_timer = uv.new_timer()
 _G._waymark_state.save_timer = M.bookmarks_save_timer
+---@type boolean
 M.bookmarks_dirty = false
+---@type integer  Generation counter — incremented on each save request
 M.bookmarks_save_generation = 0
+---@type integer  Sequence counter — incremented on each completed write
 M.bookmarks_save_seq = 0
 
 -- ---------------------------------------------------------------------------

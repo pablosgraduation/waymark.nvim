@@ -72,7 +72,7 @@ end
 
 --- Get the cursor position in the current buffer, returning nil if the buffer
 --- should be ignored or has no associated file.
----@return { row: integer, col: integer, fname: string }|nil
+---@return WaymarkCursorPosition|nil
 function M.get_cursor_position()
     local filter = require("waymark.filter")
     if filter.should_ignore_buffer() then
@@ -110,7 +110,7 @@ function M.mark_key(fname, row)
 end
 
 --- Find the index of a mark with the given ID in a list.
----@param list table[]   List of mark structs (each having an .id field)
+---@param list (WaymarkAutomark|WaymarkBookmark|WaymarkMergedMark)[]
 ---@param id integer     Mark ID to search for
 ---@return integer|nil   1-based index, or nil if not found
 function M.find_mark_index_by_id(list, id)

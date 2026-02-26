@@ -87,6 +87,8 @@ local function build_merged_timeline()
 end
 
 --- Locate the last-visited mark in a merged list by ID.
+---@param merged WaymarkMergedMark[]
+---@return integer|nil
 local function find_merged_index(merged)
     if not state.merged_last_mark then
         return nil
@@ -95,6 +97,9 @@ local function find_merged_index(merged)
 end
 
 --- Jump to a mark from the merged timeline.
+---@param mark WaymarkMergedMark
+---@param idx integer   1-based position in the merged list
+---@param total integer Total number of marks in the merged list
 local function goto_merged_mark(mark, idx, total)
     state.begin_navigation_with_fallback()
 
