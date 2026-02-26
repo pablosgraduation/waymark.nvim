@@ -16,7 +16,7 @@ jobs:
         run: sudo apt-get install -y lua-check
 
       - name: Run luacheck
-        run: luacheck lua/ tests/
+        run: luacheck lua/ tests/ plugin/
 
   format:
     runs-on: ubuntu-latest

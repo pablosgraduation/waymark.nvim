@@ -19,5 +19,5 @@ if ! command -v luacheck &>/dev/null; then
 fi
 
 echo "Running luacheck..."
-luacheck lua/ tests/ "$@"
+luacheck lua/ tests/ plugin/ "$@"
 echo "✓ luacheck passed"
