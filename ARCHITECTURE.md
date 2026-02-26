@@ -24,14 +24,14 @@ listed.
 
 | Module | Owns | Notable dependencies |
 |---|---|---|
-| **init.lua** | `setup()` orchestration, public API façade | Requires all modules directly |
+| **init.lua** | `setup()` orchestration, public API façade | Requires `config`, `state`, `highlights`, `filter`, `extmarks`, `automark`, `bookmark`, `commands` in `setup()`. Lazy-requires `popup` and `allmark` in public API wrappers. Does not require `util` or `health`. |
 | **config.lua** | Default values, merge logic, validation | None beyond stdlib |
 | **state.lua** | Mark lists, indices, timers, namespaces, navigation helpers | None beyond stdlib |
 | **automark.lua** | Tracking triggers, distance/time heuristics, cleanup pass | `filter`, `extmarks`; lazy-requires `bookmark` |
 | **bookmark.lua** | CRUD, atomic JSON persistence, toggle, navigation | `filter`, `extmarks` |
 | **allmark.lua** | Merged timeline, clock-domain bridge | `filter`, `extmarks`; lazy-requires `bookmark` |
 | **popup.lua** | Interactive floating window, selection, reorder | `extmarks`, `bookmark` |
-| **extmarks.lua** | All `nvim_buf_set_extmark` / `del_extmark` calls | Lazy-requires `filter`, `bookmark` |
+| **extmarks.lua** | Mark sign extmark CRUD, sync/restore lifecycle | Lazy-requires `filter`, `bookmark` |
 | **commands.lua** | `:Waymark*` user commands, keymap registration | `filter`, `automark`, `bookmark`, `allmark`, `popup` |
 | **filter.lua** | Buffer ignore logic, filetype/pattern cache, rename handling | Lazy-requires `bookmark` |
 | **highlights.lua** | Highlight group definitions, `ColorScheme` autocmd | — |
@@ -100,7 +100,7 @@ flowchart TD
     G{"Passes heuristics?
     different file / ≥ min_lines /
     ≥ min_interval_ms + moved"}
-    G -->|no| T(Touch timestamp)
+    G -->|no| T(Skip / touch timestamp)
     G -->|yes| BK{Bookmark on same line?}
 
     BK -->|yes| BKU(Update bookmark timestamp)
@@ -122,6 +122,14 @@ flowchart TD
     style BKU fill:#888,color:#fff
     style DN fill:#5a9,color:#fff
 ```
+
+> **force vs. non-force callers:** BufLeave and LspRequest call `add()` with
+> `force=true`, which bypasses distance/time heuristics and touches the existing
+> mark's timestamp if the position is already tracked. on_key and InsertLeave
+> call with `force=false`, which silently returns if heuristics fail. The
+> bookmark-line avoidance check is also force-dependent: `force=true` callers
+> update the bookmark's timestamp and save, while `force=false` callers just
+> record `last_position` and return without modifying the bookmark.
 
 ---
 
@@ -150,9 +158,11 @@ before Neovim exits.
 restarts a 300ms debounce timer. When the timer fires, it captures the current
 *save generation* counter, then runs the open → write → fsync → close → rename
 chain using `uv.fs_*` async calls. Each callback checks whether the captured
-generation still matches the current one. If a newer save was requested in the
-meantime, the in-flight write discards its temp file and exits — preventing a
-stale write from overwriting fresher data.
+generation still matches the current one. The generation counter is only
+incremented by synchronous saves (VimLeavePre), so this specifically prevents a
+slow async write from clobbering a sync save that already completed. Two
+concurrent async saves are serialized by the debounce timer instead — the last
+rename wins.
 
 ---
 
@@ -228,17 +238,20 @@ has started.
 
 ## Extmark Lifecycle
 
-`extmarks.lua` is the sole authority for all Neovim extmark operations. No other
-module calls `nvim_buf_set_extmark` or `nvim_buf_del_extmark` directly.
+`extmarks.lua` is the authority for all *mark sign* extmark operations — place,
+remove, sync, restore. No other module manages sign-column extmarks. The one
+exception is `util.flash_line()`, which directly creates and removes a
+short-lived line-highlight extmark in the `ns_flash` namespace for the jump
+flash effect.
 
-| Event | Action |
-|---|---|
-| **BufEnter** | Restore extmarks for all marks whose filename matches the entering buffer (deferred 50ms to let the buffer fully load). |
-| **BufUnload** | Sync extmark positions back into mark structs, then clear `extmark_id` / `bufnr` references. |
-| **BufDelete** | Same handler as BufUnload. Both are registered because BufUnload may not fire in all `:bwipeout` scenarios. Double-firing is harmless since syncing an already-synced mark is a no-op. |
-| **BufWritePost** | Full sync → deduplicate → restore cycle. Format-on-save can shift lines, causing two bookmarks to land on the same line. This cycle catches and resolves that. |
-| **VimEnter** | Restore extmarks for bookmarks in the initial buffer after loading from disk. |
-| **VimLeavePre** | Sync all extmark positions across all loaded buffers, deduplicate, then save bookmarks synchronously. |
+| Event | Module | Action |
+|---|---|---|
+| **BufEnter** | extmarks.lua | Restore extmarks for all marks whose filename matches the entering buffer (deferred 50ms to let the buffer fully load). |
+| **BufUnload** | extmarks.lua | Sync extmark positions back into mark structs, then clear `extmark_id` / `bufnr` references. |
+| **BufDelete** | extmarks.lua | Same handler as BufUnload. Both are registered because BufUnload may not fire in all `:bwipeout` scenarios. Double-firing is harmless since syncing an already-synced mark is a no-op. |
+| **BufWritePost** | extmarks.lua | Full sync → deduplicate → restore cycle. Format-on-save can shift lines, causing two bookmarks to land on the same line. This cycle catches and resolves that. |
+| **VimEnter** | bookmark.lua | Load bookmarks from disk, sync the ID counter, clean up stale entries, then restore extmarks for the initial buffer. |
+| **VimLeavePre** | bookmark.lua | Sync all extmark positions across all loaded buffers, deduplicate, then save bookmarks synchronously. |
 
 > **Why sync before navigate?** When the user edits text, Neovim moves extmarks
 > with the content automatically. But the mark struct's `.row` field is stale
