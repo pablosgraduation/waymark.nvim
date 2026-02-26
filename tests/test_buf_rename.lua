@@ -38,7 +38,11 @@ describe("BufFilePost rename handling", function()
 
     it("updates bookmark filenames when buffer is renamed", function()
         local file1 = helpers.create_temp_file({
-            "line 1", "line 2", "line 3", "line 4", "line 5",
+            "line 1",
+            "line 2",
+            "line 3",
+            "line 4",
+            "line 5",
         })
         local bufnr = helpers.open_file(file1)
 
@@ -73,7 +77,11 @@ describe("BufFilePost rename handling", function()
 
     it("triggers bookmark save after rename", function()
         local file1 = helpers.create_temp_file({
-            "line 1", "line 2", "line 3", "line 4", "line 5",
+            "line 1",
+            "line 2",
+            "line 3",
+            "line 4",
+            "line 5",
         })
         local bufnr = helpers.open_file(file1)
 

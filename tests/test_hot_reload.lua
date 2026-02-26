@@ -42,9 +42,11 @@ describe("hot-reload cleanup", function()
 
         -- The old timers should be closed (calling stop on a closed timer
         -- raises an error, so we use pcall to verify)
-        local ok = pcall(function() first_debounce:stop() end)
+        local ok = pcall(function()
+            first_debounce:stop()
+        end)
         -- It's acceptable for this to either succeed silently or error —
         -- the important thing is the cleanup ran and the new timers work.
-        _ = ok
+        assert.is_boolean(ok)
     end)
 end)
