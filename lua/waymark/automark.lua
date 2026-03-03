@@ -69,27 +69,34 @@ function M.add(r, c_col, fname, force)
     if not M.should_track_position(r, fname, force) then
         if force then
             local now = uv.now()
-            local found_automark = false
+            local found_mark = false
             for i = #state.automarks, 1, -1 do
                 if state.automarks[i].fname == fname and state.automarks[i].row == r then
                     state.automarks[i].timestamp = now
-                    found_automark = true
+                    found_mark = true
                     break
                 end
             end
-            if not found_automark then
+            if not found_mark then
                 for _, b in ipairs(state.bookmarks) do
                     if b.fname == fname and b.row == r then
                         b.timestamp = state.session_start_epoch + (now - state.session_start_mono) / 1000
                         require("waymark.bookmark").save()
+                        found_mark = true
                         break
                     end
                 end
             end
-            state.automarks_idx = -1
-            state.merged_last_mark = nil
+            if found_mark then
+                state.automarks_idx = -1
+                state.merged_last_mark = nil
+                return
+            end
+            -- No mark exists at this position (was deleted); fall through
+            -- to create a fresh automark.
+        else
+            return
         end
-        return
     end
 
     local current_time = uv.now()
