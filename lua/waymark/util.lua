@@ -222,9 +222,19 @@ local function is_suitable_jump_window(win)
         return false
     end
     local buf = vim.api.nvim_win_get_buf(win)
-    local filter_mod = require("waymark.filter")
-    if filter_mod.should_ignore_buffer(buf) then
+    local bt = vim.bo[buf].buftype
+    -- Non-empty buftype means special buffer (terminal, quickfix, help, etc.)
+    if bt ~= "" then
         return false
+    end
+    -- Check filetype-based ignore, but treat empty filetype as suitable
+    -- (empty filetype = unnamed/new buffer, perfectly fine for jumping into)
+    local ft = vim.bo[buf].filetype
+    if ft ~= "" then
+        local c = config.current
+        if c._ignored_ft_set and c._ignored_ft_set[ft] then
+            return false
+        end
     end
     return true
 end
