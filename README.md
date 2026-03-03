@@ -123,6 +123,10 @@ require("waymark").setup({
         "%.local/share/nvim/scratch/.*Scratch",
     },
 
+    navigation_filetype_allowlist = {
+        "snacks_picker_list", "neo-tree", "NvimTree", "netrw",
+    },
+
     mappings = {
         add_bookmark       = "<leader>bb",
         delete_bookmark    = "<leader>bd",

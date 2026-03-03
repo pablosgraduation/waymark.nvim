@@ -55,6 +55,34 @@ function M.should_ignore_buffer(bufnr)
     return false
 end
 
+--- Determine whether navigation (jumping to marks) should be blocked from a buffer.
+--- Unlike `should_ignore_buffer()`, this allows navigation from filetypes in
+--- `navigation_filetype_allowlist` (e.g. file explorers). Mark placement is still
+--- blocked in those buffers — only jumping away is permitted.
+---@param bufnr integer|nil  Buffer number (defaults to current buffer)
+---@return boolean           true if navigation should be blocked
+function M.should_block_navigation(bufnr)
+    bufnr = bufnr or vim.api.nvim_get_current_buf()
+
+    -- Always block from popup (has its own keybinds)
+    if state.popup_buf and bufnr == state.popup_buf then
+        return true
+    end
+    if not vim.api.nvim_buf_is_valid(bufnr) then
+        return true
+    end
+
+    -- If this filetype is in the navigate-from allowlist, allow navigation
+    local filetype = vim.bo[bufnr].filetype
+    local c = config.current
+    if c._navigation_allowed_ft_set and c._navigation_allowed_ft_set[filetype] then
+        return false
+    end
+
+    -- Otherwise, fall back to standard ignore check
+    return M.should_ignore_buffer(bufnr)
+end
+
 --- Register autocmds for cache invalidation and buffer rename handling.
 function M.setup()
     -- Invalidate cache when buffer conditions change

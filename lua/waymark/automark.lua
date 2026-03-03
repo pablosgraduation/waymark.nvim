@@ -265,7 +265,7 @@ end
 ---@param count integer|nil  Number of steps (default 1)
 function M.prev(count)
     state.warn_if_no_setup()
-    if filter.should_ignore_buffer() then
+    if filter.should_block_navigation() then
         return
     end
     if #state.automarks == 0 then
@@ -293,7 +293,7 @@ end
 ---@param count integer|nil  Number of steps (default 1)
 function M.next(count)
     state.warn_if_no_setup()
-    if filter.should_ignore_buffer() then
+    if filter.should_block_navigation() then
         return
     end
     if #state.automarks == 0 then

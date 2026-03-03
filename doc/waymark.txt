@@ -113,6 +113,9 @@ All options with their defaults:
             "^term://", "^fugitive://", "COMMIT_EDITMSG", "^oil://",
             "%.local/share/nvim/scratch/.*Scratch",
         },
+        navigation_filetype_allowlist = {
+            "snacks_picker_list", "neo-tree", "NvimTree", "netrw",
+        },
         mappings = {
             add_bookmark       = "<leader>bb",
             delete_bookmark    = "<leader>bd",
@@ -226,6 +229,14 @@ ignored_patterns                                               (table, list)
     Buffers whose filename matches any pattern are excluded from
     tracking. Patterns use standard Lua `string.match()` syntax
     (e.g. `"^term://"`, `"%.local/share/nvim/scratch/.*Scratch"`).
+
+navigation_filetype_allowlist                                  (table, list)
+    List of filetype strings that block mark placement but allow
+    navigation (jumping to marks). When you press a navigation key
+    in one of these buffers (e.g. a file explorer), waymark will
+    find a suitable editor window and jump there instead of silently
+    ignoring the command. The explorer buffer is left untouched.
+    Use `:set filetype?` to discover a buffer's filetype.
 
 mappings                                              (table or false)
     Table of key-to-action mappings. Set individual keys to `false` to

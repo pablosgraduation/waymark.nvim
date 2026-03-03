@@ -46,8 +46,10 @@ local M = {}
 ---@field popup_help_color string
 ---@field ignored_filetypes string[]
 ---@field ignored_patterns string[]
+---@field navigation_filetype_allowlist string[]
 ---@field mappings WaymarkMappings|false
 ---@field _ignored_ft_set table<string, boolean>  Internal: built by setup()
+---@field _navigation_allowed_ft_set table<string, boolean>  Internal: built by setup()
 
 ---@type WaymarkConfig
 M.defaults = {
@@ -109,6 +111,16 @@ M.defaults = {
         "%.local/share/nvim/scratch/.*Scratch",
     },
 
+    -- Filetypes that block mark placement but allow navigation (jumping to marks).
+    -- When you're in one of these buffers, navigation commands will jump to marks
+    -- in a suitable editor window instead of being silently ignored.
+    navigation_filetype_allowlist = {
+        "snacks_picker_list",
+        "neo-tree",
+        "NvimTree",
+        "netrw",
+    },
+
     -- Keymaps: set to `false` to disable all, or override individual keys.
     mappings = {
         add_bookmark = "<leader>bb",
@@ -139,10 +151,14 @@ M.defaults = {
 ---@type WaymarkConfig
 M.current = vim.deepcopy(M.defaults)
 
--- Pre-build the filetype lookup set so should_ignore_buffer() works before setup().
+-- Pre-build the filetype lookup sets so filtering works before setup().
 M.current._ignored_ft_set = {}
 for _, ft in ipairs(M.current.ignored_filetypes) do
     M.current._ignored_ft_set[ft] = true
+end
+M.current._navigation_allowed_ft_set = {}
+for _, ft in ipairs(M.current.navigation_filetype_allowlist) do
+    M.current._navigation_allowed_ft_set[ft] = true
 end
 
 -- ---------------------------------------------------------------------------
@@ -230,11 +246,19 @@ function M.setup(opts)
         vim.notify("waymark: ignored_patterns must be a table, using default", vim.log.levels.WARN)
         M.current.ignored_patterns = M.defaults.ignored_patterns
     end
+    if type(M.current.navigation_filetype_allowlist) ~= "table" then
+        vim.notify("waymark: navigation_filetype_allowlist must be a table, using default", vim.log.levels.WARN)
+        M.current.navigation_filetype_allowlist = M.defaults.navigation_filetype_allowlist
+    end
 
-    -- Build O(1) filetype lookup set
+    -- Build O(1) filetype lookup sets
     M.current._ignored_ft_set = {}
     for _, ft in ipairs(M.current.ignored_filetypes) do
         M.current._ignored_ft_set[ft] = true
+    end
+    M.current._navigation_allowed_ft_set = {}
+    for _, ft in ipairs(M.current.navigation_filetype_allowlist) do
+        M.current._navigation_allowed_ft_set[ft] = true
     end
 end
 

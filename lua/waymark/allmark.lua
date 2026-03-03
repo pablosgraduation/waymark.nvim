@@ -151,7 +151,7 @@ end
 ---@param count integer|nil
 function M.prev(count)
     state.warn_if_no_setup()
-    if filter.should_ignore_buffer() then
+    if filter.should_block_navigation() then
         return
     end
     local merged = build_merged_timeline()
@@ -182,7 +182,7 @@ end
 ---@param count integer|nil
 function M.next(count)
     state.warn_if_no_setup()
-    if filter.should_ignore_buffer() then
+    if filter.should_block_navigation() then
         return
     end
     local merged = build_merged_timeline()

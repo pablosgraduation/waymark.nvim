@@ -375,7 +375,7 @@ end
 ---@param count integer|nil
 function M.prev(count)
     state.warn_if_no_setup()
-    if filter.should_ignore_buffer() then
+    if filter.should_block_navigation() then
         return
     end
     if #state.bookmarks == 0 then
@@ -403,7 +403,7 @@ end
 ---@param count integer|nil
 function M.next(count)
     state.warn_if_no_setup()
-    if filter.should_ignore_buffer() then
+    if filter.should_block_navigation() then
         return
     end
     if #state.bookmarks == 0 then
@@ -440,7 +440,7 @@ end
 ---@param index integer
 function M.goto_bookmark(index)
     state.warn_if_no_setup()
-    if filter.should_ignore_buffer() then
+    if filter.should_block_navigation() then
         return
     end
     M.jump_to_index(index)

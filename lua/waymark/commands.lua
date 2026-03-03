@@ -46,7 +46,7 @@ function M.register_commands()
 
     vim.api.nvim_create_user_command("WaymarkJumpBookmark", function(opts)
         state.warn_if_no_setup()
-        if filter.should_ignore_buffer() then
+        if filter.should_block_navigation() then
             return
         end
         local index = tonumber(opts.args)

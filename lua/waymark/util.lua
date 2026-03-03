@@ -208,6 +208,61 @@ function M.flash_line()
 end
 
 -- ---------------------------------------------------------------------------
+-- Navigation window targeting
+-- ---------------------------------------------------------------------------
+
+--- Check whether a window is suitable for receiving a navigation jump.
+---@param win integer  Window handle
+---@return boolean
+local function is_suitable_jump_window(win)
+    if not vim.api.nvim_win_is_valid(win) then
+        return false
+    end
+    if vim.wo[win].winfixbuf then
+        return false
+    end
+    local buf = vim.api.nvim_win_get_buf(win)
+    local filter_mod = require("waymark.filter")
+    if filter_mod.should_ignore_buffer(buf) then
+        return false
+    end
+    return true
+end
+
+--- Find a suitable editor window to receive a navigation jump.
+--- Tries the alternate window first (most recently used), then scans the
+--- current tab for the largest suitable window by area.
+---@return integer|nil  Window handle, or nil if none found
+function M.find_navigation_window()
+    -- Try alternate window (winnr('#'))
+    local alt_nr = vim.fn.winnr("#")
+    if alt_nr ~= 0 and alt_nr ~= vim.fn.winnr() then
+        local alt_win = vim.fn.win_getid(alt_nr)
+        if is_suitable_jump_window(alt_win) then
+            return alt_win
+        end
+    end
+
+    -- Scan current tab for largest suitable window
+    local best_win = nil
+    local best_area = -1
+    local cur_win = vim.api.nvim_get_current_win()
+    for _, win in ipairs(vim.api.nvim_tabpage_list_wins(0)) do
+        if win ~= cur_win and is_suitable_jump_window(win) then
+            local w = vim.api.nvim_win_get_width(win)
+            local h = vim.api.nvim_win_get_height(win)
+            local area = w * h
+            if area > best_area then
+                best_area = area
+                best_win = win
+            end
+        end
+    end
+
+    return best_win
+end
+
+-- ---------------------------------------------------------------------------
 -- Navigation jump
 -- ---------------------------------------------------------------------------
 
@@ -219,6 +274,35 @@ end
 ---@param window_id integer|nil  Window handle to restore
 ---@return boolean               true if the jump succeeded
 function M.jump_to_position(fname, row, col, tab_id, window_id)
+    -- If the current window is unsuitable for jumping (explorer, winfixbuf),
+    -- redirect to a suitable editor window before proceeding.
+    local filter_mod = require("waymark.filter")
+    if filter_mod.should_ignore_buffer() or vim.wo.winfixbuf then
+        -- Try the mark's original tab/window first
+        if tab_id and vim.api.nvim_tabpage_is_valid(tab_id) then
+            vim.api.nvim_set_current_tabpage(tab_id)
+            if window_id and vim.api.nvim_win_is_valid(window_id) and not vim.wo[window_id].winfixbuf then
+                vim.api.nvim_set_current_win(window_id)
+                -- Fall through to existing jump logic in this window
+            else
+                local nav_win = M.find_navigation_window()
+                if nav_win then
+                    vim.api.nvim_set_current_win(nav_win)
+                else
+                    vim.cmd("botright vnew")
+                end
+            end
+        else
+            local nav_win = M.find_navigation_window()
+            if nav_win then
+                vim.api.nvim_set_current_win(nav_win)
+            else
+                vim.cmd("botright vnew")
+            end
+        end
+    end
+
+    -- Safety net: if after redirect we're still in a winfixbuf, bail
     if vim.wo.winfixbuf then
         return false
     end
